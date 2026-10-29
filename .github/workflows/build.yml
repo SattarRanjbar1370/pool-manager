@@ -16,7 +16,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
 
       - name: Setup Java JDK
         uses: actions/setup-java@v4
@@ -24,24 +24,20 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
-      # ۱. نصب پکیج‌ها در ریشه ریپازیتوری
       - name: Install Dependencies
         run: npm install
 
-      # ۲. اضافه کردن پلتفرم اندروید و سینک با کاپاسیتور
       - name: Setup Android Platform
         run: |
           npx cap add android || true
           npx cap sync android
 
-      # ۳. ساخت بیلد APK با گریدل
       - name: Build APK with Gradle
         run: |
           cd android
           chmod +x gradlew
           ./gradlew assembleDebug --stacktrace
 
-      # ۴. آپلود فایل نهایی APK
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
