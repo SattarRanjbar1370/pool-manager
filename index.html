@@ -4,386 +4,115 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>مدیریت هوشمند بودجه و مخارج (Pool)</title>
-
-    <!-- کتابخانه‌ها -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/dexie@latest/dist/dexie.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-
-    <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet"
-        type="text/css" />
+    <title>مدیریت هوشمند بودجه استخر نقدینگی</title>
+    <script src="js/libs/tailwind.js"></script>
     <link rel="stylesheet" href="css/style.css">
 </head>
 
-<body class="bg-slate-900 text-slate-100 min-h-screen py-8 px-4 font-sans">
+<body class="bg-slate-900 text-slate-100 min-h-screen p-4 md:p-8 font-sans antialiased">
+    <div class="max-w-6xl mx-auto space-y-6">
 
-    <div class="max-w-5xl mx-auto space-y-6">
-
-        <!-- هدر و ثبت درآمد کل -->
-        <header
-            class="bg-slate-800 border border-slate-700/80 rounded-2xl p-6 shadow-xl flex flex-col md:flex-row items-center justify-between gap-4">
+        <!-- هدر برنامه -->
+        <header class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4">
             <div>
-                <h1 class="text-2xl font-bold text-emerald-400 flex items-center gap-2">
-                    <span>💼</span> مدیریت بودجه و مخارج روزانه
+                <h1 class="text-xl md:text-2xl font-black text-emerald-400 flex items-center gap-2">
+                    <span>💼</span> مدیریت بودجه و جریان نقدینگی
                 </h1>
+                <p id="currentCycleDisplay" class="text-xs text-slate-400 mt-1">دوره کاری فعال: در حال بارگذاری...</p>
+            </div>
+            <div class="flex items-center gap-2">
                 <button id="btnCloseMonthBtn"
-                    class="bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 text-xs px-3 py-1.5 rounded-xl transition">
+                    class="bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 text-xs px-3 py-2 rounded-xl transition">
                     🔒 بستن این ماه و انتقال به ماه بعد
                 </button>
-                <button id="tabIncomeBtn"
-                    class="px-5 py-2.5 font-medium text-sm rounded-t-xl transition border-b-2 border-transparent text-slate-400 hover:text-slate-200">
-                    💰 درآمدها و دریافتی
-                </button>
-                <p class="text-xs text-slate-400 mt-1">سامانه ردیابی جریان مالی و سرفصل‌های تخصیص‌یافته (ذخیره‌سازی محلی
-                    IndexedDB)</p>
-            </div>
-            <div class="w-full md:w-72">
-                <label class="block text-xs font-medium text-slate-400 mb-1">موجودی کل اولیه / درآمد (تومان):</label>
-                <input type="number" id="baseIncomeInput" placeholder="مثال: ۵۰,۰۰۰,۰۰۰"
-                    class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-lg font-bold text-emerald-300 focus:outline-none focus:border-emerald-500 transition">
             </div>
         </header>
 
-        <!-- کارت‌های آمار لحظه‌ای و زنده -->
-        <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div class="bg-slate-800/80 border border-slate-700 p-4 rounded-xl text-center shadow-lg">
-                <span class="text-xs text-slate-400">موجودی اولیه</span>
-                <div id="statIncome" class="text-lg font-bold text-slate-200 mt-1">۰ تومان</div>
-            </div>
-            <div class="bg-slate-800/80 border border-slate-700 p-4 rounded-xl text-center shadow-lg">
-                <span class="text-xs text-slate-400">مجموع بودجه تعریف‌شده</span>
-                <div id="statAllocated" class="text-lg font-bold text-cyan-400 mt-1">۰ تومان</div>
-            </div>
-            <div class="bg-slate-800/80 border border-slate-700 p-4 rounded-xl text-center shadow-lg">
-                <span class="text-xs text-slate-400">مجموع خرج‌کرد واقعی</span>
-                <div id="statTotalSpent" class="text-lg font-bold text-amber-400 mt-1">۰ تومان</div>
-            </div>
-            <div class="bg-slate-800/80 border border-slate-700 p-4 rounded-xl text-center shadow-lg">
-                <span class="text-xs text-slate-400">مانده آزاد از کل نقدینگی</span>
-                <div id="statFreeBalance" class="text-lg font-bold text-emerald-400 mt-1">۰ تومان</div>
-            </div>
-        </section>
+        <!-- کانتینر کارت‌های آماری (لود توسط کامپوننت) -->
+        <div id="statCardsContainer"></div>
 
-        <!-- تب‌های جابه‌جایی بین بخش‌ها -->
-        <div class="flex border-b border-slate-700 space-x-reverse space-x-2">
+        <!-- نوار تب‌ها -->
+        <div class="flex border-b border-slate-800 space-x-reverse space-x-1 overflow-x-auto">
             <button id="tabBudgetBtn"
-                class="px-5 py-2.5 font-medium text-sm rounded-t-xl transition border-b-2 border-emerald-500 bg-slate-800 text-emerald-400">
+                class="tab-btn px-5 py-2.5 font-medium text-sm rounded-t-xl transition border-b-2 border-emerald-500 bg-slate-800 text-emerald-400">
                 📦 پاکت‌های بودجه‌بندی
             </button>
             <button id="tabExpenseBtn"
-                class="px-5 py-2.5 font-medium text-sm rounded-t-xl transition border-b-2 border-transparent text-slate-400 hover:text-slate-200">
+                class="tab-btn px-5 py-2.5 font-medium text-sm rounded-t-xl transition border-b-2 border-transparent text-slate-400 hover:text-slate-200">
                 💳 مخارج روزانه
             </button>
+            <button id="tabTimelineBtn"
+                class="tab-btn px-5 py-2.5 font-medium text-sm rounded-t-xl transition border-b-2 border-transparent text-slate-400 hover:text-slate-200">
+                📊 تایم‌لاین هزینه
+            </button>
+            <button id="tabIncomeBtn"
+                class="tab-btn px-5 py-2.5 font-medium text-sm rounded-t-xl transition border-b-2 border-transparent text-slate-400 hover:text-slate-200">
+                💰 دریافتی و درآمدها
+            </button>
             <button id="tabBackupBtn"
-                class="px-5 py-2.5 font-medium text-sm rounded-t-xl transition border-b-2 border-transparent text-slate-400 hover:text-slate-200">
-                💾 پشتیبان‌گیری و خروجی
+                class="tab-btn px-5 py-2.5 font-medium text-sm rounded-t-xl transition border-b-2 border-transparent text-slate-400 hover:text-slate-200">
+                💾 پشتیبان‌گیری
             </button>
         </div>
 
-        <!-- بخش ۱: مدیریت پاکت‌های بودجه -->
-        <section id="budgetSection" class="space-y-6">
-            <div class="bg-slate-800 border border-slate-700 rounded-2xl p-6 shadow-xl">
-                <h2 class="text-base font-semibold text-slate-200 mb-4">تعریف پاکت جدید (سرفصل بودجه)</h2>
-                <form id="addBudgetForm" class="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-                    <div class="md:col-span-5">
-                        <label class="block text-xs text-slate-400 mb-1">عنوان سرفصل:</label>
-                        <input type="text" id="budgetTitleInput" required
-                            placeholder="مثال: قطعات الکترونیک، اجاره، پس‌انداز"
-                            class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-emerald-500">
+        <!-- کانتینر محتوای هر بخش (لود توسط کامپوننت‌ها) -->
+        <main>
+            <section id="budgetSection"></section>
+            <section id="expenseSection" class="hidden"></section>
+            <section id="timelineSection" class="hidden"></section>
+            <section id="incomeSection" class="hidden"></section>
+            <section id="backupSection" class="hidden">
+                <div class="bg-slate-800 border border-slate-700 rounded-2xl p-6 shadow-xl space-y-4">
+                    <h3 class="text-base font-bold text-slate-200">پشتیبان‌گیری و خروجی داده‌ها</h3>
+                    <p class="text-xs text-slate-400 leading-relaxed">برای جلوگیری از حذف داده‌ها و ذخیره در محل امن از
+                        گزینه‌های زیر استفاده کنید:</p>
+                    <div class="flex flex-wrap gap-3 pt-2">
+                        <button id="btnExportJson"
+                            class="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-xs rounded-xl transition">خروجی کامل
+                            JSON</button>
+                        <label
+                            class="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-xs rounded-xl cursor-pointer transition">
+                            بازیابی از فایل JSON
+                            <input type="file" id="importJsonInput" accept=".json" class="hidden">
+                        </label>
+                        <button id="btnExportExcel"
+                            class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-xs rounded-xl transition">خروجی
+                            اکسل (Excel)</button>
+                        <button id="btnExportPdf"
+                            class="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-xs rounded-xl transition">خروجی گزارش
+                            PDF</button>
                     </div>
-                    <div class="md:col-span-4">
-                        <label class="block text-xs text-slate-400 mb-1">سقف تخصیص (تومان):</label>
-                        <input type="number" id="budgetAmountInput" required min="1" placeholder="مثال: ۱۵,۰۰۰,۰۰۰"
-                            class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-emerald-500">
-                    </div>
-                    <div class="md:col-span-3">
-                        <button type="submit"
-                            class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-medium rounded-xl py-2 px-4 transition">
-                            + ایجاد پاکت بودجه
-                        </button>
-                    </div>
-                </form>
-            </div>
-
-            <div class="bg-slate-800 border border-slate-700 rounded-2xl p-6 shadow-xl">
-                <h3 class="text-sm font-semibold text-slate-300 mb-4">وضعیت پاکت‌ها و میزان مصرف</h3>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-right border-collapse">
-                        <thead>
-                            <tr class="border-b border-slate-700 text-slate-400 text-xs">
-                                <th class="py-3 px-3">عنوان سرفصل</th>
-                                <th class="py-3 px-3">بودجه مصوب</th>
-                                <th class="py-3 px-3">خرج‌شده</th>
-                                <th class="py-3 px-3">باقیمانده پاکت</th>
-                                <th class="py-3 px-3">درصد مصرف</th>
-                                <th class="py-3 px-3 text-center">عملیات</th>
-                            </tr>
-                        </thead>
-                        <tbody id="budgetTableBody" class="divide-y divide-slate-700/50 text-sm"></tbody>
-                    </table>
                 </div>
-                <div id="budgetEmptyState" class="text-center py-6 text-slate-500 text-xs hidden">
-                    هنوز سرفصل بودجه‌ای تعریف نکرده‌اید.
-                </div>
-            </div>
-        </section>
+            </section>
+        </main>
 
-        <!-- بخش ۲: مدیریت مخارج روزانه -->
-        <section id="expenseSection" class="space-y-6 hidden">
-            <div class="bg-slate-800 border border-slate-700 rounded-2xl p-6 shadow-xl">
-                <h2 class="text-base font-semibold text-slate-200 mb-4">ثبت خرج جدید (متصل به سرفصل)</h2>
-                <form id="addExpenseForm" class="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-                    <div class="md:col-span-3">
-                        <label class="block text-xs text-slate-400 mb-1">انتخاب سرفصل (الزامی):</label>
-                        <select id="expenseBudgetSelect" required
-                            class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-amber-500 text-slate-200">
-                            <option value="">-- انتخاب سرفصل --</option>
-                        </select>
-                    </div>
-                    <div class="md:col-span-3">
-                        <label class="block text-xs text-slate-400 mb-1">بابت چه کاری؟</label>
-                        <input type="text" id="expenseTitleInput" required placeholder="مثال: خرید سنسور، ناهار..."
-                            class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-amber-500">
-                    </div>
-                    <div class="md:col-span-3">
-                        <label class="block text-xs text-slate-400 mb-1">مبلغ (تومان):</label>
-                        <input type="number" id="expenseAmountInput" required min="1" placeholder="مثال: ۴۵۰,۰۰۰"
-                            class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-amber-500">
-                    </div>
-                    <div class="md:col-span-3">
-                        <button type="submit"
-                            class="w-full bg-amber-600 hover:bg-amber-500 text-white font-medium rounded-xl py-2 px-4 transition">
-                            + ثبت این خرج
-                        </button>
-                    </div>
-                </form>
-            </div>
-
-            <div class="bg-slate-800 border border-slate-700 rounded-2xl p-6 shadow-xl">
-                <h3 class="text-sm font-semibold text-slate-300 mb-4">ریز تراکنش‌های خرج‌کرد</h3>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-right border-collapse">
-                        <thead>
-                            <tr class="border-b border-slate-700 text-slate-400 text-xs">
-                                <th class="py-3 px-3">تاریخ</th>
-                                <th class="py-3 px-3">عنوان هزینه</th>
-                                <th class="py-3 px-3">سرفصل متصل</th>
-                                <th class="py-3 px-3">مبلغ پرداختی</th>
-                                <th class="py-3 px-3 text-center">عملیات</th>
-                            </tr>
-                        </thead>
-                        <tbody id="expenseTableBody" class="divide-y divide-slate-700/50 text-sm"></tbody>
-                    </table>
-                </div>
-                <div id="expenseEmptyState" class="text-center py-6 text-slate-500 text-xs hidden">
-                    تراکنشی ثبت نشده است.
-                </div>
-            </div>
-        </section>
-
-        <!-- بخش ۳: بک‌آپ و فایل‌ها -->
-        <section id="backupSection" class="space-y-6 hidden">
-            <div class="bg-slate-800 border border-slate-700 rounded-2xl p-6 shadow-xl space-y-4">
-                <h2 class="text-base font-semibold text-slate-200">مدیریت فایل و پشتیبان‌گیری پایدار</h2>
-                <p class="text-xs text-slate-400 leading-relaxed">
-                    داده‌های شما روی IndexedDB مرورگر به طور خودکار محفوظ است. با استفاده از دکمه‌های زیر می‌توانید فایل
-                    پشتیبان خام JSON دریافت کنید، داده‌های قبلی را بازگردانید، یا گزارش کاملی با فرمت Excel و PDF
-                    بسازید.
-                </p>
-
-                <div class="flex flex-wrap gap-3 pt-2">
-                    <button id="btnExportJson"
-                        class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2.5 rounded-xl text-xs font-medium transition flex items-center gap-2">
-                        <span>💾</span> خروجی فایل بک‌آپ (JSON)
-                    </button>
-                    <label
-                        class="bg-slate-700 hover:bg-slate-600 text-slate-200 px-4 py-2.5 rounded-xl text-xs font-medium transition cursor-pointer flex items-center gap-2">
-                        <span>📥</span> بازیابی بک‌آپ از فایل
-                        <input type="file" id="importJsonInput" accept=".json" class="hidden">
-                    </label>
-                    <button id="btnExportExcel"
-                        class="bg-emerald-700 hover:bg-emerald-600 text-white px-4 py-2.5 rounded-xl text-xs font-medium transition flex items-center gap-2">
-                        <span>📊</span> خروجی اکسل کامل
-                    </button>
-                    <button id="btnExportPdf"
-                        class="bg-rose-700 hover:bg-rose-600 text-white px-4 py-2.5 rounded-xl text-xs font-medium transition flex items-center gap-2">
-                        <span>📄</span> تولید خروجی PDF
-                    </button>
-                </div>
-            </div>
-        </section>
+        <!-- کانتینر مودال‌ها و پاپ‌آپ‌ها -->
+        <div id="modalsContainer"></div>
 
     </div>
 
-    <!-- مودال پاپ‌آپ ویرایش -->
-    <div id="editModal"
-        class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
-        <div class="bg-slate-800 border border-slate-700 w-full max-w-md rounded-2xl p-6 shadow-2xl space-y-4">
-            <div class="flex items-center justify-between border-b border-slate-700 pb-3">
-                <h3 id="modalTitle" class="text-base font-bold text-slate-100">ویرایش ردیف</h3>
-                <button id="modalCloseBtn" class="text-slate-400 hover:text-slate-200 text-lg">✕</button>
-            </div>
-
-            <form id="editForm" class="space-y-4">
-                <input type="hidden" id="editItemType">
-                <input type="hidden" id="editItemId">
-
-                <div id="modalBudgetSelectContainer" class="hidden">
-                    <label class="block text-xs text-slate-400 mb-1">سرفصل متصل:</label>
-                    <select id="modalBudgetSelect"
-                        class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-amber-500"></select>
-                </div>
-
-                <div>
-                    <label class="block text-xs text-slate-400 mb-1">عنوان:</label>
-                    <input type="text" id="modalInputTitle" required
-                        class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-emerald-500">
-                </div>
-
-                <div>
-                    <label class="block text-xs text-slate-400 mb-1">مبلغ (تومان):</label>
-                    <input type="number" id="modalInputAmount" required min="1"
-                        class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-emerald-500">
-                </div>
-
-                <div class="flex justify-end gap-2 pt-3">
-                    <button type="button" id="modalCancelBtn"
-                        class="px-4 py-2 rounded-xl text-xs font-medium text-slate-300 bg-slate-700 hover:bg-slate-600 transition">انصراف</button>
-                    <button type="submit"
-                        class="px-5 py-2 rounded-xl text-xs font-medium text-white bg-emerald-600 hover:bg-emerald-500 transition">ذخیره
-                        تغییرات</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- مودال شروع دوره کاری جدید -->
-    <div id="newCycleModal"
-        class="fixed inset-0 bg-slate-950/85 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
-        <div class="bg-slate-800 border border-slate-700 w-full max-w-md rounded-2xl p-6 shadow-2xl space-y-4">
-            <div class="text-center pb-2 border-b border-slate-700">
-                <h3 class="text-base font-bold text-emerald-400">📅 شروع دوره کاری ماه جدید</h3>
-                <p class="text-xs text-slate-400 mt-1">هنوز دوره‌ای فعال نیست یا در حال انتقال به ماه جدید هستید.</p>
-            </div>
-
-            <form id="newCycleForm" class="space-y-4">
-                <div>
-                    <label class="block text-xs text-slate-400 mb-1">نام دوره ماهانه:</label>
-                    <input type="text" id="cycleTitleInput" required placeholder="مثال: آبان ۱۴۰۵"
-                        class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-emerald-500">
-                </div>
-
-                <div>
-                    <label class="block text-xs text-slate-400 mb-1">موجودی پول نقد فعلی برای شروع (تومان):</label>
-                    <input type="number" id="cycleOpeningBalanceInput" required min="0" placeholder="مثال: ۱۵,۰۰۰,۰۰۰"
-                        class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-emerald-500">
-                    <p class="text-[11px] text-slate-500 mt-1">اگر حقوق اصلی هنوز واریز نشده، مبلغ مانده نقد فعلی‌تان را
-                        وارد کنید.</p>
-                </div>
-
-                <div class="pt-2">
-                    <button type="submit"
-                        class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-medium rounded-xl text-sm transition">
-                        تأیید و آغاز دوره کاری
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- پاپ‌آپ هوشمند تصمیم‌گیری پس از ثبت حقوق روز هفتم -->
-    <div id="salaryPromptModal"
-        class="fixed inset-0 bg-slate-950/85 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
-        <div
-            class="bg-slate-800 border border-slate-700 w-full max-w-md rounded-2xl p-6 shadow-2xl space-y-4 text-center">
-            <div
-                class="w-12 h-12 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto text-xl">
-                💰
-            </div>
-            <h3 class="text-base font-bold text-slate-100">حقوق اصلی ماه با موفقیت ثبت شد!</h3>
-            <p class="text-xs text-slate-300 leading-relaxed">
-                اکنون منبع اصلی بودجه‌بندی ماه تکمیل شد. مایلید سرفصل‌های پاکت بودجه را چگونه تنظیم کنیم؟
-            </p>
-
-            <div class="space-y-2 pt-2">
-                <button id="btnCopyPreviousBudgets"
-                    class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-xl transition">
-                    🔄 تکرار الگوی ماه قبل (کپی پاکت‌ها و مبالغ قبلی)
-                </button>
-                <button id="btnStartFreshBudgets"
-                    class="w-full py-2.5 bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-medium rounded-xl transition">
-                    ✏️ تعریف بودجه‌بندی کاملاً جدید و سفارشی
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- بخش مدیریت درآمدها -->
-    <section id="incomeSection" class="space-y-6 hidden">
-        <div class="bg-slate-800 border border-slate-700 rounded-2xl p-6 shadow-xl">
-            <h2 class="text-base font-semibold text-slate-200 mb-4">ثبت درآمد جدید / حقوق</h2>
-            <form id="addIncomeForm" class="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-                <div class="md:col-span-4">
-                    <label class="block text-xs text-slate-400 mb-1">عنوان دریافتی:</label>
-                    <input type="text" id="incomeTitleInput" required
-                        placeholder="مثال: حقوق اصلی، پروژه جانبی، پاداش..."
-                        class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-emerald-500">
-                </div>
-                <div class="md:col-span-3">
-                    <label class="block text-xs text-slate-400 mb-1">مبلغ (تومان):</label>
-                    <input type="number" id="incomeAmountInput" required min="1" placeholder="مثال: ۲۵,۰۰۰,۰۰۰"
-                        class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-emerald-500">
-                </div>
-                <div class="md:col-span-3 flex items-center h-10">
-                    <label class="inline-flex items-center gap-2 cursor-pointer">
-                        <input type="checkbox" id="isSalaryCheckbox"
-                            class="w-4 h-4 rounded bg-slate-950 border-slate-700 text-emerald-500 focus:ring-0">
-                        <span class="text-xs font-semibold text-emerald-400">حقوق اصلی ماه است؟ (روز ۷ام)</span>
-                    </label>
-                </div>
-                <div class="md:col-span-2">
-                    <button type="submit"
-                        class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-medium rounded-xl py-2 px-3 text-sm transition">
-                        + ثبت دریافتی
-                    </button>
-                </div>
-            </form>
-        </div>
-
-        <div class="bg-slate-800 border border-slate-700 rounded-2xl p-6 shadow-xl">
-            <h3 class="text-sm font-semibold text-slate-300 mb-4">لیست درآمدهای ثبت‌شده این دوره</h3>
-            <div class="overflow-x-auto">
-                <table class="w-full text-right border-collapse">
-                    <thead>
-                        <tr class="border-b border-slate-700 text-slate-400 text-xs">
-                            <th class="py-3 px-3">تاریخ</th>
-                            <th class="py-3 px-3">عنوان</th>
-                            <th class="py-3 px-3">نوع دریافتی</th>
-                            <th class="py-3 px-3">مبلغ دریافتی</th>
-                            <th class="py-3 px-3 text-center">عملیات</th>
-                        </tr>
-                    </thead>
-                    <tbody id="incomeTableBody" class="divide-y divide-slate-700/50 text-sm"></tbody>
-                </table>
-            </div>
-            <div id="incomeEmptyState" class="text-center py-6 text-slate-500 text-xs hidden">
-                درآمدی در این دوره ثبت نشده است.
-            </div>
-        </div>
-    </section>
-
-    <!-- اسکریپت‌های بدون نیاز به سرور به ترتیب وابستگی -->
+    <!-- هسته کتابخانه‌ها (۱۰۰٪ لوکال و آفلاین) -->
+    <script src="js/libs/dexie.min.js"></script>
     <script src="js/db.js"></script>
+
+    <!-- سرویس‌ها -->
+    <script src="js/services/cycleService.js"></script>
+    <script src="js/services/incomeService.js"></script>
     <script src="js/services/budgetService.js"></script>
     <script src="js/services/expenseService.js"></script>
     <script src="js/services/backupService.js"></script>
+
+    <!-- کامپوننت‌های رابط کاربری -->
+    <script src="components/statCards.js"></script>
+    <script src="components/budgetView.js"></script>
+    <script src="components/expenseView.js"></script>
+    <script src="components/incomeView.js"></script>
+    <script src="components/timelineView.js"></script>
+    <script src="components/modals.js"></script>
+
+    <!-- رابط و هماهنگ‌کننده -->
     <script src="js/ui.js"></script>
     <script src="js/app.js"></script>
-    <script src="js/services/cycleService.js"></script>
-    <script src="js/services/incomeService.js"></script>
-
 </body>
 
 </html>
