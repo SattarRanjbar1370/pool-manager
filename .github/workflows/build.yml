@@ -16,7 +16,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 20
 
       - name: Setup Java JDK
         uses: actions/setup-java@v4
@@ -24,28 +24,26 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
-      # ۱. نصب پکیج‌ها داخل پوشه pool
+      # ۱. نصب پکیج‌ها در ریشه ریپازیتوری
       - name: Install Dependencies
-        working-directory: pool
         run: npm install
 
-      # ۲. ایجاد و همگام‌سازی پلتفرم اندروید
-      - name: Add Android Platform
-        working-directory: pool
+      # ۲. اضافه کردن پلتفرم اندروید و سینک با کاپاسیتور
+      - name: Setup Android Platform
         run: |
           npx cap add android || true
           npx cap sync android
 
       # ۳. ساخت بیلد APK با گریدل
       - name: Build APK with Gradle
-        working-directory: pool/android
         run: |
+          cd android
           chmod +x gradlew
-          ./gradlew assembleDebug
+          ./gradlew assembleDebug --stacktrace
 
-      # ۴. آپلود فایل APK خروجی
+      # ۴. آپلود فایل نهایی APK
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: Pool-App-Debug
-          path: pool/android/app/build/outputs/apk/debug/app-debug.apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk

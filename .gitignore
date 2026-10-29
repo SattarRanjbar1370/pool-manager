@@ -1,6 +1,5 @@
 # پوشه وابستگی‌های npm
 node_modules/
-package-lock.json
 
 # فایل‌های خروجی و بیلد اندروید
 android/app/build/
@@ -10,7 +9,6 @@ android/local.properties
 # فایل‌های خروجی موقت و گزارش‌ها
 *.xlsx
 *.pdf
-*.json
 
 # سیستم‌عامل
 Thumbs.db
