@@ -11,7 +11,6 @@ async function checkCurrentCycle() {
 
     if (!currentCycle) {
         if (titleDisplay) titleDisplay.textContent = 'دوره کاری فعال: دوره‌ای تعریف نشده است';
-        // تنظیم تاریخ روز و عنوان پیش‌فرض در مودال شروع
         if (window.modalsComponent && window.modalsComponent.prepareNewCycleModal) {
             window.modalsComponent.prepareNewCycleModal();
         }
@@ -34,22 +33,20 @@ async function refreshApp() {
 
     const cycleId = currentCycle.id;
 
-    // دریافت اطلاعات از پایگاه داده
+    // دریافت اطلاعات پایه
     const totalLiquidity = await window.incomeService.getTotalLiquidity(cycleId);
     const budgets = await window.db.budgets.where('cycle_id').equals(cycleId).toArray();
     const rawExpenses = await window.db.expenses.where('cycle_id').equals(cycleId).toArray();
     const incomes = await window.incomeService.getIncomesByCycle(cycleId);
 
-    // نقشه نام سرفصل‌ها برای اتصال به مخارج
     const budgetMap = {};
     budgets.forEach(b => { budgetMap[b.id] = b.title; });
 
     const expenses = rawExpenses.map(e => ({
         ...e,
-        budget_title: budgetMap[e.budget_id] || 'سرفصل نامشخص'
+        budget_title: budgetMap[e.budget_id] || (e.budget_id === 0 ? 'انتقال به اندوخته' : 'سرفصل نامشخص')
     }));
 
-    // محاسبه آمار مصرفی هر پاکت
     const budgetsWithStats = await Promise.all(
         budgets.map(async (b) => {
             const spent = await window.expenseService.getSpentByBudget(b.id);
@@ -60,7 +57,7 @@ async function refreshApp() {
     const totalAllocated = budgets.reduce((sum, b) => sum + (b.allocated_amount || 0), 0);
     const totalSpent = expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
 
-    // به‌روزرسانی کارت‌های آمار بالای صفحه
+    // بروزرسانی کارت‌های آمار نقدینگی ماه
     window.statCardsComponent.update({ income: totalLiquidity, totalAllocated, totalSpent });
 
     // بروزرسانی کامپوننت‌ها
@@ -71,7 +68,11 @@ async function refreshApp() {
     }
     window.expenseViewComponent.renderTable(expenses, handleEditExpense, handleDeleteExpense);
     window.incomeViewComponent.renderTable(incomes, handleDeleteIncome);
-    window.timelineViewComponent.render(expenses);
+    window.timelineViewComponent.render(expenses, incomes, budgets);
+
+    if (window.assetsViewComponent) {
+        await window.assetsViewComponent.refresh();
+    }
 
     return { budgetsWithStats, expenses, totalSpent, totalLiquidity };
 }
@@ -100,7 +101,7 @@ async function handleDeleteIncome(id) {
     await refreshApp();
 }
 
-// ۴. اتصال شنونده‌های رویدادها (Event Listeners)
+// ۴. اتصال شنونده‌های رویدادهای اصلی
 function setupEventListeners() {
     // فرم شروع دوره جدید
     const newCycleForm = document.getElementById('newCycleForm');
@@ -118,7 +119,7 @@ function setupEventListeners() {
         });
     }
 
-    // فرم افزودن پاکت بودجه
+    // فرم افزودن پاکت بودجه مصرفی
     const addBudgetForm = document.getElementById('addBudgetForm');
     if (addBudgetForm) {
         addBudgetForm.addEventListener('submit', async (e) => {
@@ -131,6 +132,7 @@ function setupEventListeners() {
             await window.db.budgets.add({
                 cycle_id: currentCycle.id,
                 title: title.trim(),
+                category_type: 'expense',
                 allocated_amount: Number(amount),
                 month: currentCycle.title,
                 created_at: new Date().toISOString()
@@ -166,7 +168,6 @@ function setupEventListeners() {
             });
 
             addExpenseForm.reset();
-            // بازگرداندن تاریخ فرم به امروز پس از ثبت
             if (dateInput && window.persianDatePicker) {
                 dateInput.value = window.persianDatePicker.getTodayJalaliString();
             }
@@ -174,7 +175,7 @@ function setupEventListeners() {
         });
     }
 
-    // فرم ثبت دریافتی جدید و تشخیص حقوق
+    // فرم ثبت درآمد جدید
     const addIncomeForm = document.getElementById('addIncomeForm');
     if (addIncomeForm) {
         addIncomeForm.addEventListener('submit', async (e) => {
@@ -191,7 +192,6 @@ function setupEventListeners() {
 
             await window.incomeService.addIncome(currentCycle.id, title, amount, isSalary, dateValue);
             addIncomeForm.reset();
-            // بازگرداندن تاریخ فرم به امروز پس از ثبت
             if (dateInput && window.persianDatePicker) {
                 dateInput.value = window.persianDatePicker.getTodayJalaliString();
             }
@@ -203,7 +203,7 @@ function setupEventListeners() {
         });
     }
 
-    // پاپ‌آپ تصمیم‌گیری حقوق (الگوی ماه قبل یا جدید)
+    // پاپ‌آپ تصمیم‌گیری حقوق
     const btnStartFresh = document.getElementById('btnStartFreshBudgets');
     if (btnStartFresh) {
         btnStartFresh.addEventListener('click', () => {
@@ -251,7 +251,6 @@ function setupEventListeners() {
         });
     }
 
-    // دکمه‌های بستن مودال ویرایش
     const modalClose = document.getElementById('modalCloseBtn');
     const modalCancel = document.getElementById('modalCancelBtn');
     if (modalClose) modalClose.addEventListener('click', () => window.modalsComponent.closeEdit());
@@ -274,7 +273,7 @@ function setupEventListeners() {
         });
     }
 
-    // خروجی و پشتیبان‌گیری
+    // دکمه‌های پشتیبان‌گیری
     const btnJson = document.getElementById('btnExportJson');
     if (btnJson) {
         btnJson.addEventListener('click', async () => {
@@ -323,25 +322,22 @@ function setupEventListeners() {
     }
 }
 
-// ۵. بارگذاری اولیه و مقداردهی کامپوننت‌ها
+// ۵. بارگذاری اولیه یکتا
 document.addEventListener('DOMContentLoaded', async () => {
-    // سوار کردن المان‌های UI از فایل‌های کامپوننت
     window.statCardsComponent.mount();
     window.budgetViewComponent.mount();
     window.expenseViewComponent.mount();
     window.timelineViewComponent.mount();
     window.incomeViewComponent.mount();
+    window.assetsViewComponent.mount();
     window.modalsComponent.mount();
 
-    // سوار کردن پاپ‌آپ تقویم شمسی
     if (window.persianDatePicker) {
         window.persianDatePicker.mount();
     }
 
-    // تنظیم ناوبری تب‌ها و ایونت‌ها
     window.ui.setupTabs();
     setupEventListeners();
 
-    // اجرای بارگذاری اولیه برنامه
     await refreshApp();
 });
