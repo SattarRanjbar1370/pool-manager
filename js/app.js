@@ -11,6 +11,10 @@ async function checkCurrentCycle() {
 
     if (!currentCycle) {
         if (titleDisplay) titleDisplay.textContent = 'دوره کاری فعال: دوره‌ای تعریف نشده است';
+        // تنظیم تاریخ روز و عنوان پیش‌فرض در مودال شروع
+        if (window.modalsComponent && window.modalsComponent.prepareNewCycleModal) {
+            window.modalsComponent.prepareNewCycleModal();
+        }
         document.getElementById('newCycleModal').classList.remove('hidden');
         return null;
     }
@@ -62,6 +66,9 @@ async function refreshApp() {
     // بروزرسانی کامپوننت‌ها
     window.budgetViewComponent.renderTable(budgetsWithStats, handleEditBudget, handleDeleteBudget);
     window.expenseViewComponent.populateBudgetDropdown(budgets);
+    if (window.modalsComponent && window.modalsComponent.populateModalBudgets) {
+        window.modalsComponent.populateModalBudgets(budgets);
+    }
     window.expenseViewComponent.renderTable(expenses, handleEditExpense, handleDeleteExpense);
     window.incomeViewComponent.renderTable(incomes, handleDeleteIncome);
     window.timelineViewComponent.render(expenses);
@@ -144,17 +151,25 @@ function setupEventListeners() {
             const budgetId = document.getElementById('expenseBudgetSelect').value;
             const title = document.getElementById('expenseTitleInput').value;
             const amount = document.getElementById('expenseAmountInput').value;
+            const dateInput = document.getElementById('expenseDateInput');
+            const dateValue = (dateInput && dateInput.value.trim())
+                ? dateInput.value.trim()
+                : (window.persianDatePicker ? window.persianDatePicker.getTodayJalaliString() : new Date().toLocaleDateString('fa-IR'));
 
             await window.db.expenses.add({
                 cycle_id: currentCycle.id,
                 budget_id: Number(budgetId),
                 title: title.trim(),
                 amount: Number(amount),
-                date: new Date().toLocaleDateString('fa-IR'),
+                date: dateValue,
                 created_at: new Date().toISOString()
             });
 
             addExpenseForm.reset();
+            // بازگرداندن تاریخ فرم به امروز پس از ثبت
+            if (dateInput && window.persianDatePicker) {
+                dateInput.value = window.persianDatePicker.getTodayJalaliString();
+            }
             await refreshApp();
         });
     }
@@ -169,9 +184,17 @@ function setupEventListeners() {
             const title = document.getElementById('incomeTitleInput').value;
             const amount = document.getElementById('incomeAmountInput').value;
             const isSalary = document.getElementById('isSalaryCheckbox').checked;
+            const dateInput = document.getElementById('incomeDateInput');
+            const dateValue = (dateInput && dateInput.value.trim())
+                ? dateInput.value.trim()
+                : (window.persianDatePicker ? window.persianDatePicker.getTodayJalaliString() : new Date().toLocaleDateString('fa-IR'));
 
-            await window.incomeService.addIncome(currentCycle.id, title, amount, isSalary);
+            await window.incomeService.addIncome(currentCycle.id, title, amount, isSalary, dateValue);
             addIncomeForm.reset();
+            // بازگرداندن تاریخ فرم به امروز پس از ثبت
+            if (dateInput && window.persianDatePicker) {
+                dateInput.value = window.persianDatePicker.getTodayJalaliString();
+            }
             await refreshApp();
 
             if (isSalary) {
@@ -216,7 +239,11 @@ function setupEventListeners() {
                 await window.budgetService.updateBudget(id, title, amount);
             } else {
                 const budgetId = document.getElementById('modalBudgetSelect').value;
-                await window.expenseService.updateExpense(id, budgetId, title, amount);
+                if (!budgetId) {
+                    alert('لطفاً سرفصل متصل را انتخاب کنید.');
+                    return;
+                }
+                await window.expenseService.updateExpense(id, Number(budgetId), title, amount);
             }
 
             window.modalsComponent.closeEdit();
@@ -238,6 +265,9 @@ function setupEventListeners() {
             if (confirm(`آیا از بستن دوره «${currentCycle.title}» مطمئن هستید؟ مانده آزاد نقدینگی محاسبه شده و به دوره بعد منتقل می‌گردد.`)) {
                 const remaining = await window.cycleService.closeCycle(currentCycle.id);
                 document.getElementById('cycleOpeningBalanceInput').value = remaining;
+                if (window.modalsComponent && window.modalsComponent.prepareNewCycleModal) {
+                    window.modalsComponent.prepareNewCycleModal();
+                }
                 document.getElementById('newCycleModal').classList.remove('hidden');
                 currentCycle = null;
             }
@@ -302,6 +332,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     window.timelineViewComponent.mount();
     window.incomeViewComponent.mount();
     window.modalsComponent.mount();
+
+    // سوار کردن پاپ‌آپ تقویم شمسی
+    if (window.persianDatePicker) {
+        window.persianDatePicker.mount();
+    }
 
     // تنظیم ناوبری تب‌ها و ایونت‌ها
     window.ui.setupTabs();

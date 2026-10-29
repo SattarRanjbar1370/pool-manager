@@ -2,21 +2,29 @@
  * components/expenseView.js
  */
 window.expenseViewComponent = {
-    mount(containerId = 'expenseSection') {
-        const el = document.getElementById(containerId);
-        if (!el) return;
-        el.innerHTML = `
+  mount(containerId = 'expenseSection') {
+    const el = document.getElementById(containerId);
+    if (!el) return;
+    el.innerHTML = `
       <div class="space-y-6">
         <div class="bg-slate-800 border border-slate-700 rounded-2xl p-5 shadow-xl">
           <h2 class="text-sm font-bold text-slate-200 mb-3">💳 ثبت خرج‌کرد روزانه</h2>
           <form id="addExpenseForm" class="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-            <div class="md:col-span-4">
+            <div class="md:col-span-3">
+              <label class="block text-xs text-slate-400 mb-1">تاریخ خرج:</label>
+              <div class="flex items-center gap-1">
+                <input type="text" id="expenseDateInput" required placeholder="۱۴۰۳/۰۱/۰۱"
+                  class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-center font-mono focus:outline-none focus:border-amber-500 text-slate-200">
+                <button type="button" id="btnExpenseDatePicker" class="px-2.5 py-2 bg-slate-700 hover:bg-slate-600 rounded-xl text-sm transition">📅</button>
+              </div>
+            </div>
+            <div class="md:col-span-3">
               <label class="block text-xs text-slate-400 mb-1">انتخاب پاکت بودجه:</label>
               <select id="expenseBudgetSelect" required class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-amber-500 text-slate-200">
                 <option value="">-- انتخاب سرفصل --</option>
               </select>
             </div>
-            <div class="md:col-span-4">
+            <div class="md:col-span-3">
               <label class="block text-xs text-slate-400 mb-1">بابت چه کاری / خریدی؟</label>
               <input type="text" id="expenseTitleInput" required placeholder="مثال: خرید مواد غذایی، بنزین..."
                 class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-amber-500">
@@ -26,9 +34,9 @@ window.expenseViewComponent = {
               <input type="number" id="expenseAmountInput" required min="1" placeholder="مثال: ۱۲۰,۰۰۰"
                 class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-amber-500">
             </div>
-            <div class="md:col-span-2">
-              <button type="submit" class="w-full bg-amber-600 hover:bg-amber-500 text-white font-medium rounded-xl py-2 px-3 text-sm transition">
-                + ثبت هزینه
+            <div class="md:col-span-1">
+              <button type="submit" class="w-full bg-amber-600 hover:bg-amber-500 text-white font-medium rounded-xl py-2 px-2 text-sm transition">
+                + ثبت
               </button>
             </div>
           </form>
@@ -56,39 +64,51 @@ window.expenseViewComponent = {
         </div>
       </div>
     `;
-    },
 
-    populateBudgetDropdown(budgets) {
-        const sel = document.getElementById('expenseBudgetSelect');
-        if (!sel) return;
-        sel.innerHTML = '<option value="">-- انتخاب سرفصل --</option>';
-        budgets.forEach(b => {
-            const opt = document.createElement('option');
-            opt.value = b.id;
-            opt.textContent = b.title;
-            sel.appendChild(opt);
-        });
-    },
+    // مقداردهی اولیه فیلد با تاریخ امروز شمسی و اتصال دکمه تقویم
+    const dateInput = document.getElementById('expenseDateInput');
+    const pickerBtn = document.getElementById('btnExpenseDatePicker');
+    if (dateInput && window.persianDatePicker) {
+      dateInput.value = window.persianDatePicker.getTodayJalaliString();
+    }
+    if (pickerBtn && window.persianDatePicker) {
+      pickerBtn.addEventListener('click', () => {
+        window.persianDatePicker.open('expenseDateInput');
+      });
+    }
+  },
 
-    renderTable(expenses, onEdit, onDelete) {
-        const tbody = document.getElementById('expenseTableBody');
-        const emptyState = document.getElementById('expenseEmptyState');
-        if (!tbody) return;
-        tbody.innerHTML = '';
+  populateBudgetDropdown(budgets) {
+    const sel = document.getElementById('expenseBudgetSelect');
+    if (!sel) return;
+    sel.innerHTML = '<option value="">-- انتخاب سرفصل --</option>';
+    budgets.forEach(b => {
+      const opt = document.createElement('option');
+      opt.value = b.id;
+      opt.textContent = b.title;
+      sel.appendChild(opt);
+    });
+  },
 
-        if (!expenses || expenses.length === 0) {
-            if (emptyState) emptyState.classList.remove('hidden');
-            return;
-        }
-        if (emptyState) emptyState.classList.add('hidden');
+  renderTable(expenses, onEdit, onDelete) {
+    const tbody = document.getElementById('expenseTableBody');
+    const emptyState = document.getElementById('expenseEmptyState');
+    if (!tbody) return;
+    tbody.innerHTML = '';
 
-        const format = (n) => Number(n || 0).toLocaleString('fa-IR');
+    if (!expenses || expenses.length === 0) {
+      if (emptyState) emptyState.classList.remove('hidden');
+      return;
+    }
+    if (emptyState) emptyState.classList.add('hidden');
 
-        expenses.forEach(exp => {
-            const tr = document.createElement('tr');
-            tr.className = 'hover:bg-slate-750/50 border-b border-slate-700/40 text-slate-200';
-            tr.innerHTML = `
-        <td class="py-3 px-3 text-xs text-slate-400">${exp.date || '-'}</td>
+    const format = (n) => Number(n || 0).toLocaleString('fa-IR');
+
+    expenses.forEach(exp => {
+      const tr = document.createElement('tr');
+      tr.className = 'hover:bg-slate-750/50 border-b border-slate-700/40 text-slate-200';
+      tr.innerHTML = `
+        <td class="py-3 px-3 text-xs text-slate-400 font-mono">${exp.date || '-'}</td>
         <td class="py-3 px-3 font-medium text-slate-100">${exp.title}</td>
         <td class="py-3 px-3"><span class="px-2 py-0.5 bg-slate-950 text-cyan-400 rounded-md text-xs">${exp.budget_title || '-'}</span></td>
         <td class="py-3 px-3 text-amber-400 font-bold">${format(exp.amount)} تومان</td>
@@ -97,22 +117,22 @@ window.expenseViewComponent = {
           <button data-id="${exp.id}" class="btn-delete-expense text-rose-400 hover:text-rose-300 text-xs px-2 py-1 bg-rose-500/10 rounded-lg">حذف</button>
         </td>
       `;
-            tbody.appendChild(tr);
-        });
+      tbody.appendChild(tr);
+    });
 
-        tbody.querySelectorAll('.btn-edit-expense').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const id = Number(e.currentTarget.getAttribute('data-id'));
-                const item = expenses.find(x => x.id === id);
-                onEdit(item);
-            });
-        });
+    tbody.querySelectorAll('.btn-edit-expense').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const id = Number(e.currentTarget.getAttribute('data-id'));
+        const item = expenses.find(x => x.id === id);
+        onEdit(item);
+      });
+    });
 
-        tbody.querySelectorAll('.btn-delete-expense').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const id = Number(e.currentTarget.getAttribute('data-id'));
-                onDelete(id);
-            });
-        });
-    }
+    tbody.querySelectorAll('.btn-delete-expense').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const id = Number(e.currentTarget.getAttribute('data-id'));
+        onDelete(id);
+      });
+    });
+  }
 };
