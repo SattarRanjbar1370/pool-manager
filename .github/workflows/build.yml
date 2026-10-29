@@ -22,32 +22,32 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
-          java-version: '17'
+          java-version: '21'
 
       # ۱. نصب پکیج‌ها
       - name: Install Dependencies
         run: npm install
 
-      # ۲. آماده‌سازی فایل‌های وب در پوشه www
+      # ۲. آماده‌سازی دارایی‌های وب در پوشه www
       - name: Prepare Web Assets
         run: |
           mkdir -p www
           cp -r index.html css js assets www/
 
-      # ۳. ساخت و همگام‌سازی پلتفرم اندروید
+      # ۳. اضافه کردن پلتفرم اندروید و همگام‌سازی
       - name: Setup Android Platform
         run: |
           npx cap add android || true
           npx cap sync android
 
-      # ۴. ساخت بیلد APK با گریدل
+      # ۴. تنظیم مجوز اجرایی گریدل و ساخت APK
       - name: Build APK with Gradle
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleDebug --stacktrace
+          ./gradlew assembleDebug
 
-      # ۵. آپلود فایل نهایی APK
+      # ۵. آپلود خروجی APK
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
