@@ -1,0 +1,18 @@
+# پوشه وابستگی‌های npm
+node_modules/
+package-lock.json
+
+# فایل‌های خروجی و بیلد اندروید
+android/app/build/
+android/.gradle/
+android/local.properties
+
+# فایل‌های خروجی موقت و گزارش‌ها
+*.xlsx
+*.pdf
+*.json
+
+# سیستم‌عامل
+Thumbs.db
+Desktop.ini
+.DS_Store
