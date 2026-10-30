@@ -2,33 +2,68 @@
  * js/services/backupService.js
  */
 window.backupService = {
+    tables: ['cycles', 'incomes', 'budgets', 'expenses', 'assets', 'asset_logs', 'transfers'],
+
+    async hasData() {
+        for (const name of this.tables) {
+            if (await window.db[name].count()) return true;
+        }
+        return false;
+    },
+
     async exportToJson() {
-        const names = ['cycles', 'incomes', 'budgets', 'expenses', 'assets', 'asset_logs', 'transfers'];
-        const data = { version: 4, exported_at: new Date().toISOString() };
+        const names = this.tables;
+        const data = { format: 'pool-manager-backup', version: 4, exported_at: new Date().toISOString() };
         await window.db.transaction('r', ...names.map(n => window.db[n]), async () => {
             for (const name of names) data[name] = await window.db[name].toArray();
         });
-        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const json = JSON.stringify(data, null, 2);
+        const filename = 'pool_backup_' + new Date().toISOString().replace(/[:.]/g, '-') + '.json';
+        const native = window.Capacitor?.isNativePlatform?.();
+        const plugins = window.Capacitor?.Plugins;
+        if (native) {
+            if (!plugins?.Filesystem || !plugins?.Share) {
+                throw new Error('امکان ذخیره نسخه پشتیبان در این نسخه اندروید فعال نیست.');
+            }
+            const written = await plugins.Filesystem.writeFile({
+                path: filename, data: json, directory: 'CACHE', encoding: 'utf8'
+            });
+            await plugins.Share.share({
+                title: 'نسخه پشتیبان Pool Manager',
+                text: 'این فایل را در Downloads، Drive یا محل امن دیگری ذخیره کنید.',
+                url: written.uri, dialogTitle: 'ذخیره فایل پشتیبان'
+            });
+            return;
+        }
+        const blob = new Blob([json], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `pool_backup_${new Date().toISOString().slice(0, 10)}.json`;
+        a.download = filename;
+        document.body.appendChild(a);
         a.click();
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 10000);
     },
 
     async importFromJson(file) {
-        const text = await file.text();
-        const data = JSON.parse(text);
-        const names = ['cycles', 'incomes', 'budgets', 'expenses', 'assets', 'asset_logs', 'transfers'];
+        if (!file || file.size > 25 * 1024 * 1024) throw new Error('حجم فایل پشتیبان نامعتبر یا بیش از ۲۵ مگابایت است.');
+        const data = JSON.parse(await file.text());
+        const names = this.tables;
         if (data.version !== 4 || !names.every(n => Array.isArray(data[n]))) {
             throw new Error('فایل پشتیبان کامل نسخه ۴ لازم است.');
         }
+        for (const name of names) {
+            for (const record of data[name]) {
+                if (!record || typeof record !== 'object' || Array.isArray(record)) {
+                    throw new Error('ساختار داده‌های فایل پشتیبان معتبر نیست.');
+                }
+            }
+        }
+        // All-or-nothing replacement: an invalid record rolls the entire transaction back.
         await window.db.transaction('rw', ...names.map(n => window.db[n]), async () => {
             for (const name of names) await window.db[name].clear();
-            for (const name of names) {
-                if (data[name].length) await window.db[name].bulkAdd(data[name]);
-            }
+            for (const name of names) if (data[name].length) await window.db[name].bulkAdd(data[name]);
         });
         return true;
     },
