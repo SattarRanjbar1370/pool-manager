@@ -38,6 +38,7 @@ async function refreshApp() {
     const budgets = await window.db.budgets.where('cycle_id').equals(cycleId).toArray();
     const rawExpenses = await window.db.expenses.where('cycle_id').equals(cycleId).toArray();
     const incomes = await window.incomeService.getIncomesByCycle(cycleId);
+    const transfers = await window.db.transfers.where('cycle_id').equals(cycleId).toArray();
 
     const budgetMap = {};
     budgets.forEach(b => { budgetMap[b.id] = b.title; });
@@ -57,8 +58,9 @@ async function refreshApp() {
     const totalAllocated = budgets.reduce((sum, b) => sum + (b.allocated_amount || 0), 0);
     const totalSpent = expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
 
-    // بروزرسانی کارت‌های آمار نقدینگی ماه
-    window.statCardsComponent.update({ income: totalLiquidity, totalAllocated, totalSpent });
+    // انتقال پس‌انداز از نقدینگی کسر می‌شود ولی هزینه نیست
+    const netTransfers = transfers.reduce((sum, t) => sum + (t.direction === 'out' ? Number(t.amount || 0) : -Number(t.amount || 0)), 0);
+    window.statCardsComponent.update({ income: totalLiquidity, totalAllocated, totalSpent, netTransfers });
 
     // بروزرسانی کامپوننت‌ها
     window.budgetViewComponent.renderTable(budgetsWithStats, handleEditBudget, handleDeleteBudget);
