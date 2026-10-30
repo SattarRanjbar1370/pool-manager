@@ -79,6 +79,8 @@ async function refreshApp() {
     return { budgetsWithStats, expenses, totalSpent, totalLiquidity };
 }
 
+window.refreshApp = refreshApp;
+
 // ۳. هندلرهای ویرایش و حذف
 function handleEditBudget(budget) {
     window.modalsComponent.openEdit('budget', budget);
