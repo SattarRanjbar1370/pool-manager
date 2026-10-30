@@ -253,6 +253,16 @@
             </form>
         </div>
     </div>
+    <div id="firstLaunchModal" class="fixed inset-0 z-[80] bg-slate-950/95 hidden flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="firstLaunchTitle">
+        <div class="w-full max-w-md bg-slate-800 border border-emerald-500/30 rounded-2xl p-6 space-y-5 shadow-2xl">
+            <h2 id="firstLaunchTitle" class="text-lg font-bold text-emerald-400">به Pool Manager خوش آمدید</h2>
+            <p class="text-sm text-slate-300 leading-7">اگر از نسخه قبلی فایل پشتیبان JSON دارید، ابتدا آن را بازیابی کنید. در غیر این صورت می‌توانید با اطلاعات جدید شروع کنید.</p>
+            <button id="firstLaunchRestore" type="button" class="w-full bg-emerald-600 text-white rounded-xl py-3 font-bold">بازیابی اطلاعات قبلی</button>
+            <button id="firstLaunchFresh" type="button" class="w-full bg-slate-700 text-slate-100 rounded-xl py-3">شروع از صفر</button>
+            <input id="firstLaunchFile" type="file" accept=".json,application/json" class="hidden">
+            <p id="firstLaunchError" class="text-rose-400 text-xs" role="alert"></p>
+        </div>
+    </div>
     <!-- کانتینر مودال‌ها -->
     <div id="modalsContainer"></div>
 
