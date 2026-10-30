@@ -27,8 +27,8 @@ window.statCardsComponent = {
     `;
     },
 
-    update({ income, totalAllocated, totalSpent }) {
-        const freeBalance = income - totalSpent;
+    update({ income, totalAllocated, totalSpent, netTransfers = 0 }) {
+        const freeBalance = income - totalSpent - netTransfers;
         const format = window.ui ? window.ui.formatNumber : (n) => Number(n).toLocaleString('fa-IR');
 
         const incEl = document.getElementById('statIncome');
