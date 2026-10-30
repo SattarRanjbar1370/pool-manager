@@ -18,7 +18,7 @@ window.homeInsightsComponent = {
           <div id="homeBudgets" class="space-y-3 text-xs text-slate-400"></div>
         </section>
         <section class="bg-slate-800/80 border border-slate-700 rounded-2xl p-5 shadow-lg lg:col-span-2">
-          <div class="flex items-center justify-between mb-3"><h2 class="font-bold text-amber-300">▥ خرج روزانه</h2><span class="text-xs text-slate-400">هفت روز اخیر</span></div>
+          <div class="flex items-center justify-between mb-3"><h2 class="font-bold text-amber-300">▥ خرج روزانه</h2><span class="text-xs text-slate-400">روزهای ثبت‌شده اخیر</span></div>
           <p id="homeTodayExpense" class="text-sm text-slate-200 mb-4"></p>
           <div id="homeExpenseBars" class="flex items-end gap-2 h-28"></div>
           <div id="homeRecentExpenses" class="mt-4 text-xs text-slate-400"></div>
