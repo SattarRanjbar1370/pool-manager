@@ -341,7 +341,11 @@ function setupEventListeners() {
     if (btnJson) {
         btnJson.addEventListener('click', async () => {
             const totalLiquidity = currentCycle ? await window.incomeService.getTotalLiquidity(currentCycle.id) : 0;
-            window.backupService.exportToJson(totalLiquidity);
+            try {
+                await window.backupService.exportToJson();
+            } catch (err) {
+                alert("خروجی پشتیبان انجام نشد: " + err.message);
+            }
         });
     }
 
@@ -385,6 +389,34 @@ function setupEventListeners() {
     }
 }
 
+async function handleFirstLaunch() {
+    // Never offer a destructive fresh start when records already exist.
+    if (await window.backupService.hasData()) return;
+    const modal = document.getElementById('firstLaunchModal');
+    const input = document.getElementById('firstLaunchFile');
+    const error = document.getElementById('firstLaunchError');
+    modal.classList.remove('hidden');
+    await new Promise(resolve => {
+        const finish = () => { modal.classList.add('hidden'); resolve(); };
+        document.getElementById('firstLaunchFresh').addEventListener('click', finish, { once: true });
+        document.getElementById('firstLaunchRestore').addEventListener('click', () => input.click());
+        input.addEventListener('change', async () => {
+            const file = input.files?.[0];
+            if (!file) return;
+            error.textContent = '';
+            try {
+                await window.backupService.importFromJson(file);
+                currentCycle = null;
+                finish();
+            } catch (err) {
+                error.textContent = 'بازیابی انجام نشد: ' + err.message;
+            } finally {
+                input.value = '';
+            }
+        });
+    });
+}
+
 // ۵. بارگذاری اولیه یکتا
 document.addEventListener('DOMContentLoaded', async () => {
     window.statCardsComponent.mount();
@@ -403,5 +435,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     window.ui.setupTabs();
     setupEventListeners();
 
+    await handleFirstLaunch();
     await refreshApp();
 });
