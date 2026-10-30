@@ -207,6 +207,7 @@
                 <section id="dashboardSection" class="space-y-6">
                     <div id="statCardsContainer"></div>
                     <div id="homeInsights" class="mt-6"></div>
+                    <button id="btnQuickExpense" type="button" class="fixed bottom-6 left-5 z-30 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-full px-5 py-3 shadow-xl flex items-center gap-2" aria-label="ثبت سریع هزینه">＋ ثبت سریع هزینه</button>
                 </section>
 
                 <section id="budgetSection" class="hidden"></section>
@@ -241,6 +242,17 @@
         </div>
     </div>
 
+    <div id="quickExpenseModal" class="fixed inset-0 bg-slate-950/85 z-[60] hidden flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="quickExpenseHeading">
+        <div class="bg-slate-800 border border-slate-700 rounded-2xl p-5 w-full max-w-sm space-y-4 shadow-2xl">
+            <div class="flex justify-between items-center"><h2 id="quickExpenseHeading" class="font-bold text-amber-300">ثبت سریع هزینه</h2><button id="btnCloseQuickExpense" type="button" class="text-slate-300 text-xl px-2" aria-label="بستن">×</button></div>
+            <form id="quickExpenseForm" class="space-y-3">
+                <label class="block text-xs text-slate-300">پاکت بودجه<select id="quickExpenseBudget" required class="block mt-1 w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-sm"></select></label>
+                <label class="block text-xs text-slate-300">شرح هزینه<input id="quickExpenseTitle" type="text" required maxlength="150" class="block mt-1 w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-sm" placeholder="مثلاً خرید نان"></label>
+                <label class="block text-xs text-slate-300">مبلغ (تومان)<input id="quickExpenseAmount" type="number" required min="1" step="1" class="block mt-1 w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-sm" placeholder="۱۲۰۰۰۰"></label>
+                <button type="submit" class="w-full bg-amber-500 text-slate-950 font-bold rounded-xl py-3">ثبت هزینه</button>
+            </form>
+        </div>
+    </div>
     <!-- کانتینر مودال‌ها -->
     <div id="modalsContainer"></div>
 
