@@ -47,14 +47,16 @@ window.cycleService = {
         const expenses = await window.db.expenses.where('cycle_id').equals(cycleId).toArray();
         const totalSpent = expenses.reduce((sum, item) => sum + (item.amount || 0), 0);
 
-        const remainingCash = totalIncome - totalSpent;
+        const transfers = await window.db.transfers.where('cycle_id').equals(cycleId).toArray();
+        const netTransfers = transfers.reduce((sum, t) => sum + (t.direction === 'out' ? Number(t.amount || 0) : -Number(t.amount || 0)), 0);
+        const remainingCash = totalIncome - totalSpent - netTransfers;
 
         await window.db.cycles.update(cycleId, {
             is_closed: 1,
             end_date: new Date().toLocaleDateString('fa-IR')
         });
 
-        return Math.max(0, remainingCash);
+        return remainingCash;
     },
 
     // کپی کردن سرفصل‌های دوره قبل برای دوره جدید

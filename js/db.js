@@ -34,3 +34,7 @@ db.version(3).stores({
 });
 
 window.db = db;
+// انتقال داخلی بین نقدینگی و دارایی؛ نه درآمد و نه هزینه
+ db.version(4).stores({
+    transfers: '++id, cycle_id, asset_log_id, asset_id, amount, direction, date, created_at'
+});

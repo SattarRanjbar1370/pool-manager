@@ -38,6 +38,7 @@ async function refreshApp() {
     const budgets = await window.db.budgets.where('cycle_id').equals(cycleId).toArray();
     const rawExpenses = await window.db.expenses.where('cycle_id').equals(cycleId).toArray();
     const incomes = await window.incomeService.getIncomesByCycle(cycleId);
+    const transfers = await window.db.transfers.where('cycle_id').equals(cycleId).toArray();
 
     const budgetMap = {};
     budgets.forEach(b => { budgetMap[b.id] = b.title; });
@@ -57,8 +58,10 @@ async function refreshApp() {
     const totalAllocated = budgets.reduce((sum, b) => sum + (b.allocated_amount || 0), 0);
     const totalSpent = expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
 
-    // بروزرسانی کارت‌های آمار نقدینگی ماه
-    window.statCardsComponent.update({ income: totalLiquidity, totalAllocated, totalSpent });
+    // انتقال پس‌انداز از نقدینگی کسر می‌شود ولی هزینه نیست
+    const netTransfers = transfers.reduce((sum, t) => sum + (t.direction === 'out' ? Number(t.amount || 0) : -Number(t.amount || 0)), 0);
+    window.statCardsComponent.update({ income: totalLiquidity, totalAllocated, totalSpent, netTransfers });
+    if (window.homeInsightsComponent) await window.homeInsightsComponent.update(budgetsWithStats, expenses);
 
     // بروزرسانی کامپوننت‌ها
     window.budgetViewComponent.renderTable(budgetsWithStats, handleEditBudget, handleDeleteBudget);
@@ -76,6 +79,8 @@ async function refreshApp() {
 
     return { budgetsWithStats, expenses, totalSpent, totalLiquidity };
 }
+
+window.refreshApp = refreshApp;
 
 // ۳. هندلرهای ویرایش و حذف
 function handleEditBudget(budget) {
@@ -142,6 +147,64 @@ function setupEventListeners() {
             await refreshApp();
         });
     }
+
+    // ثبت سریع هزینه از داشبورد
+    const quickModal = document.getElementById('quickExpenseModal');
+    const quickForm = document.getElementById('quickExpenseForm');
+    const quickOpen = document.getElementById('btnQuickExpense');
+    const quickClose = () => quickModal.classList.add('hidden');
+    document.getElementById('btnCloseQuickExpense')?.addEventListener('click', quickClose);
+    quickModal?.addEventListener('click', e => { if (e.target === quickModal) quickClose(); });
+    quickOpen?.addEventListener('click', async () => {
+        if (!currentCycle) {
+            alert('ابتدا یک دوره کاری ایجاد کنید.');
+            return;
+        }
+        const budgets = await window.db.budgets.where('cycle_id').equals(currentCycle.id).toArray();
+        if (!budgets.length) {
+            alert('ابتدا یک پاکت بودجه ایجاد کنید.');
+            return;
+        }
+        const select = document.getElementById('quickExpenseBudget');
+        select.replaceChildren();
+        budgets.forEach(b => {
+            const option = document.createElement('option');
+            option.value = b.id;
+            option.textContent = b.title;
+            select.appendChild(option);
+        });
+        quickForm.reset();
+        quickModal.classList.remove('hidden');
+        document.getElementById('quickExpenseTitle').focus();
+    });
+    quickForm?.addEventListener('submit', async e => {
+        e.preventDefault();
+        if (!currentCycle) return;
+        const budgetId = Number(document.getElementById('quickExpenseBudget').value);
+        const title = document.getElementById('quickExpenseTitle').value.trim();
+        const amount = Number(document.getElementById('quickExpenseAmount').value);
+        if (!title || !Number.isSafeInteger(amount) || amount <= 0) return;
+        const budget = await window.db.budgets.get(budgetId);
+        if (!budget || budget.cycle_id !== currentCycle.id) {
+            alert('پاکت انتخاب‌شده معتبر نیست.');
+            return;
+        }
+        const submit = quickForm.querySelector('[type="submit"]');
+        submit.disabled = true;
+        try {
+            await window.db.expenses.add({
+                cycle_id: currentCycle.id, budget_id: budgetId, title, amount,
+                date: window.persianDatePicker ? window.persianDatePicker.getTodayJalaliString() : new Date().toLocaleDateString('fa-IR'),
+                created_at: new Date().toISOString()
+            });
+            quickClose();
+            await refreshApp();
+        } catch (error) {
+            alert('ثبت هزینه ناموفق بود: ' + error.message);
+        } finally {
+            submit.disabled = false;
+        }
+    });
 
     // فرم ثبت هزینه روزانه
     const addExpenseForm = document.getElementById('addExpenseForm');
@@ -278,7 +341,11 @@ function setupEventListeners() {
     if (btnJson) {
         btnJson.addEventListener('click', async () => {
             const totalLiquidity = currentCycle ? await window.incomeService.getTotalLiquidity(currentCycle.id) : 0;
-            window.backupService.exportToJson(totalLiquidity);
+            try {
+                await window.backupService.exportToJson();
+            } catch (err) {
+                alert("خروجی پشتیبان انجام نشد: " + err.message);
+            }
         });
     }
 
@@ -322,9 +389,38 @@ function setupEventListeners() {
     }
 }
 
+async function handleFirstLaunch() {
+    // Never offer a destructive fresh start when records already exist.
+    if (await window.backupService.hasData()) return;
+    const modal = document.getElementById('firstLaunchModal');
+    const input = document.getElementById('firstLaunchFile');
+    const error = document.getElementById('firstLaunchError');
+    modal.classList.remove('hidden');
+    await new Promise(resolve => {
+        const finish = () => { modal.classList.add('hidden'); resolve(); };
+        document.getElementById('firstLaunchFresh').addEventListener('click', finish, { once: true });
+        document.getElementById('firstLaunchRestore').addEventListener('click', () => input.click());
+        input.addEventListener('change', async () => {
+            const file = input.files?.[0];
+            if (!file) return;
+            error.textContent = '';
+            try {
+                await window.backupService.importFromJson(file);
+                currentCycle = null;
+                finish();
+            } catch (err) {
+                error.textContent = 'بازیابی انجام نشد: ' + err.message;
+            } finally {
+                input.value = '';
+            }
+        });
+    });
+}
+
 // ۵. بارگذاری اولیه یکتا
 document.addEventListener('DOMContentLoaded', async () => {
     window.statCardsComponent.mount();
+    window.homeInsightsComponent.mount();
     window.budgetViewComponent.mount();
     window.expenseViewComponent.mount();
     window.timelineViewComponent.mount();
@@ -339,5 +435,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     window.ui.setupTabs();
     setupEventListeners();
 
+    await handleFirstLaunch();
     await refreshApp();
 });

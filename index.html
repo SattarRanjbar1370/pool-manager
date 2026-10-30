@@ -206,6 +206,8 @@
                 <!-- داشبورد اصلی -->
                 <section id="dashboardSection" class="space-y-6">
                     <div id="statCardsContainer"></div>
+                    <div id="homeInsights" class="mt-6"></div>
+                    <button id="btnQuickExpense" type="button" class="fixed bottom-6 left-5 z-30 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-full px-5 py-3 shadow-xl flex items-center gap-2" aria-label="ثبت سریع هزینه">＋ ثبت سریع هزینه</button>
                 </section>
 
                 <section id="budgetSection" class="hidden"></section>
@@ -240,6 +242,27 @@
         </div>
     </div>
 
+    <div id="quickExpenseModal" class="fixed inset-0 bg-slate-950/85 z-[60] hidden flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="quickExpenseHeading">
+        <div class="bg-slate-800 border border-slate-700 rounded-2xl p-5 w-full max-w-sm space-y-4 shadow-2xl">
+            <div class="flex justify-between items-center"><h2 id="quickExpenseHeading" class="font-bold text-amber-300">ثبت سریع هزینه</h2><button id="btnCloseQuickExpense" type="button" class="text-slate-300 text-xl px-2" aria-label="بستن">×</button></div>
+            <form id="quickExpenseForm" class="space-y-3">
+                <label class="block text-xs text-slate-300">پاکت بودجه<select id="quickExpenseBudget" required class="block mt-1 w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-sm"></select></label>
+                <label class="block text-xs text-slate-300">شرح هزینه<input id="quickExpenseTitle" type="text" required maxlength="150" class="block mt-1 w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-sm" placeholder="مثلاً خرید نان"></label>
+                <label class="block text-xs text-slate-300">مبلغ (تومان)<input id="quickExpenseAmount" type="number" required min="1" step="1" class="block mt-1 w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-sm" placeholder="۱۲۰۰۰۰"></label>
+                <button type="submit" class="w-full bg-amber-500 text-slate-950 font-bold rounded-xl py-3">ثبت هزینه</button>
+            </form>
+        </div>
+    </div>
+    <div id="firstLaunchModal" class="fixed inset-0 z-[80] bg-slate-950/95 hidden flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="firstLaunchTitle">
+        <div class="w-full max-w-md bg-slate-800 border border-emerald-500/30 rounded-2xl p-6 space-y-5 shadow-2xl">
+            <h2 id="firstLaunchTitle" class="text-lg font-bold text-emerald-400">به Pool Manager خوش آمدید</h2>
+            <p class="text-sm text-slate-300 leading-7">اگر از نسخه قبلی فایل پشتیبان JSON دارید، ابتدا آن را بازیابی کنید. در غیر این صورت می‌توانید با اطلاعات جدید شروع کنید.</p>
+            <button id="firstLaunchRestore" type="button" class="w-full bg-emerald-600 text-white rounded-xl py-3 font-bold">بازیابی اطلاعات قبلی</button>
+            <button id="firstLaunchFresh" type="button" class="w-full bg-slate-700 text-slate-100 rounded-xl py-3">شروع از صفر</button>
+            <input id="firstLaunchFile" type="file" accept=".json,application/json" class="hidden">
+            <p id="firstLaunchError" class="text-rose-400 text-xs" role="alert"></p>
+        </div>
+    </div>
     <!-- کانتینر مودال‌ها -->
     <div id="modalsContainer"></div>
 
@@ -254,6 +277,7 @@
     <script src="js/services/backupService.js"></script>
     <!-- کامپوننت‌های رابط کاربری -->
     <script src="components/statCards.js"></script>
+    <script src="components/homeInsights.js"></script>
     <script src="components/budgetView.js"></script>
     <script src="components/expenseView.js"></script>
     <script src="components/incomeView.js"></script>

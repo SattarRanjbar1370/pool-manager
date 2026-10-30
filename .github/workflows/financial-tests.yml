@@ -1,0 +1,17 @@
+name: Financial tests
+on:
+  push:
+    branches: [fix/financial-accounting-core]
+  pull_request:
+    branches: [main]
+jobs:
+  financial:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/financial.test.cjs
+      - run: |
+          for f in js/app.js js/db.js js/services/*.js components/*.js; do node --check "$f"; done

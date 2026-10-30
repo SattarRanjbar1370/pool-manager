@@ -281,102 +281,74 @@ window.assetsViewComponent = {
 
                 const currentBalance = await this.calculateAssetBalance(assetId, isCash);
 
-                // ۱. کنترل موجودی برای واریز نقدی (چک کردن جیب نقدینگی ماه)
-                if (isCash && isAdd) {
-                    const totalLiquidity = await window.incomeService.getTotalLiquidity(cycle.id);
-                    const expenses = await window.db.expenses.where('cycle_id').equals(cycle.id).toArray();
-                    const totalSpent = expenses.reduce((sum, item) => sum + (item.amount || 0), 0);
-                    const freeBalance = totalLiquidity - totalSpent;
-
-                    if (amount > freeBalance) {
-                        alert(`خطا: موجودی نقدینگی آزاد شما (${window.ui.formatNumber(freeBalance)} تومان) برای این انتقال کافی نیست.`);
-                        return;
-                    }
+                if (!Number.isFinite(amount) || amount <= 0 || !Number.isFinite(qty) || qty < 0 || (!isCash && qty <= 0)) {
+                    alert('مبلغ و تعداد دارایی باید معتبر و مثبت باشند.');
+                    return;
                 }
 
-                // ۲. کنترل موجودی برای برداشت از پس‌انداز
-                if (!isAdd) {
-                    const withdrawLimit = isCash ? currentBalance.cost : currentBalance.quantity;
-                    const attemptAmount = isCash ? amount : qty;
-
-                    if (attemptAmount > withdrawLimit) {
-                        alert(`خطا: موجودی فعلی شما (${window.ui.formatNumber(withdrawLimit)} ${targetAsset.unit || ''}) کمتر از مقدار درخواستی است.`);
-                        return;
-                    }
-                }
-
-                // ۳. کسر از صندوق پس‌انداز دیگر برای خرید دارایی جدید
-                let sourceLogId = null;
-                if (!isCash && isAdd && fundingSource !== 'liquidity') {
-                    const sourceVaultId = Number(fundingSource);
-                    const sourceVault = await window.db.assets.get(sourceVaultId);
-                    if (sourceVault) {
-                        const sourceBalance = await this.calculateAssetBalance(sourceVaultId, true);
-                        if (amount > sourceBalance.cost) {
-                            alert(`موجودی صندوق «${sourceVault.title}» برای این خرید کافی نیست.`);
-                            return;
+                try {
+                    await window.db.transaction('rw', window.db.assets, window.db.asset_logs,
+                        window.db.transfers, window.db.expenses, window.db.incomes, window.db.cycles, async () => {
+                        const balance = await this.calculateAssetBalance(assetId, isCash);
+                        if (!isAdd && (isCash ? amount > balance.cost : qty > balance.quantity)) {
+                            throw new Error('موجودی دارایی برای برداشت کافی نیست.');
                         }
 
-                        // ثبت تراکنش کسر از صندوق منبع
-                        sourceLogId = await window.db.asset_logs.add({
-                            asset_id: sourceVaultId,
-                            date,
-                            quantity: 0,
-                            change_amount: -amount,
-                            note: `برداشت برای خرید: ${targetAsset.title} (${note})`,
-                            created_at: new Date().toISOString()
+                        let sourceVaultId = null;
+                        if (isAdd && !isCash && fundingSource !== 'liquidity') {
+                            sourceVaultId = Number(fundingSource);
+                            const sourceVault = await window.db.assets.get(sourceVaultId);
+                            if (!sourceVault || sourceVault.type !== 'cash' || sourceVaultId === assetId) {
+                                throw new Error('صندوق پس‌انداز منبع معتبر نیست.');
+                            }
+                            const sourceBalance = await this.calculateAssetBalance(sourceVaultId, true);
+                            if (amount > sourceBalance.cost) throw new Error('موجودی صندوق منبع کافی نیست.');
+                        } else if (isAdd) {
+                            const totalLiquidity = await window.incomeService.getTotalLiquidity(cycle.id);
+                            const expenses = await window.db.expenses.where('cycle_id').equals(cycle.id).toArray();
+                            const transfers = await window.db.transfers.where('cycle_id').equals(cycle.id).toArray();
+                            const spent = expenses.reduce((sum, x) => sum + Number(x.amount || 0), 0);
+                            const moved = transfers.reduce((sum, x) => sum + (x.direction === 'out' ? 1 : -1) * Number(x.amount || 0), 0);
+                            if (amount > totalLiquidity - spent - moved) throw new Error('نقدینگی جاری برای این عملیات کافی نیست.');
+                        }
+
+                        const now = new Date().toISOString();
+                        let sourceLogId = null;
+                        if (sourceVaultId !== null) {
+                            const sourceVault = await window.db.assets.get(sourceVaultId);
+                            sourceLogId = await window.db.asset_logs.add({
+                                asset_id: sourceVaultId, date, quantity: 0, change_amount: -amount,
+                                note: `تأمین خرید: ${targetAsset.title}`, created_at: now
+                            });
+                            await window.db.assets.update(sourceVaultId, {
+                                initial_cost: Number(sourceVault.initial_cost || 0) - amount
+                            });
+                        }
+
+                        const changeCost = isAdd ? amount : -amount;
+                        const changeQty = isAdd ? qty : -qty;
+                        const logId = await window.db.asset_logs.add({
+                            asset_id: assetId, date, quantity: changeQty, change_amount: changeCost,
+                            note, source_log_id: sourceLogId, created_at: now
+                        });
+                        const liveAsset = await window.db.assets.get(assetId);
+                        await window.db.assets.update(assetId, {
+                            current_quantity: Number(liveAsset.current_quantity || 0) + changeQty,
+                            initial_cost: Number(liveAsset.initial_cost || 0) + changeCost
                         });
 
-                        // آپدیت تراز صندوق منبع
-                        await window.db.assets.update(sourceVaultId, {
-                            initial_cost: Math.max(0, (sourceVault.initial_cost || 0) - amount)
-                        });
-                    }
-                }
-
-                const changeCost = isAdd ? amount : -amount;
-                const changeQty = isAdd ? qty : -qty;
-
-                // ثبت تراکنش اصلی در دارایی
-                const logId = await window.db.asset_logs.add({
-                    asset_id: assetId,
-                    date,
-                    quantity: changeQty,
-                    change_amount: changeCost,
-                    note,
-                    created_at: new Date().toISOString()
-                });
-
-                await window.db.assets.update(assetId, {
-                    current_quantity: Math.max(0, (targetAsset.current_quantity || 0) + changeQty),
-                    initial_cost: Math.max(0, (targetAsset.initial_cost || 0) + changeCost)
-                });
-
-                // ارتباط با نقدینگی ماه
-                if (isAdd) {
-                    // اگر خرید از نقدینگی ماه بوده، در هزینه‌ها ثبت شود
-                    if (isCash || fundingSource === 'liquidity') {
-                        await window.db.expenses.add({
-                            cycle_id: cycle.id,
-                            budget_id: 0,
-                            title: `انتقال به اندوخته: ${targetAsset.title} (${note})`,
-                            amount: amount,
-                            date: date,
-                            created_at: new Date().toISOString(),
-                            asset_log_id: logId
-                        });
-                    }
-                } else {
-                    // برگشت پول از فروش/برداشت به نقدینگی ماه
-                    await window.db.incomes.add({
-                        cycle_id: cycle.id,
-                        title: `برداشت از اندوخته: ${targetAsset.title} (${note})`,
-                        amount: amount,
-                        is_salary: 0,
-                        date: date,
-                        created_at: new Date().toISOString(),
-                        asset_log_id: logId
+                        // انتقال نقدی فقط در صورت جابه‌جایی واقعی با نقدینگی جاری
+                        if (sourceVaultId === null) {
+                            await window.db.transfers.add({
+                                cycle_id: cycle.id, asset_id: assetId, asset_log_id: logId,
+                                amount, direction: isAdd ? 'out' : 'in', date, created_at: now
+                            });
+                        }
                     });
+                } catch (error) {
+                    console.error('خطا در ثبت تراکنش دارایی:', error);
+                    alert(error.message || 'ثبت تراکنش انجام نشد.');
+                    return;
                 }
 
                 chargeModal?.classList.add('hidden');
@@ -625,22 +597,38 @@ window.assetsViewComponent = {
                 const id = Number(e.currentTarget.getAttribute('data-id'));
                 if (confirm('با حذف این ویجت، تمام سوابق و لاگ‌های آن حذف می‌شوند. آیا ادامه می‌دهید؟')) {
                     try {
-                        const relatedLogs = await window.db.asset_logs.where('asset_id').equals(id).toArray();
-                        const logIds = relatedLogs.map(l => l.id);
-
-                        await window.db.assets.delete(id);
-                        await window.db.asset_logs.where('asset_id').equals(id).delete();
-
-                        for (const lid of logIds) {
-                            await window.db.expenses.where('asset_log_id').equals(lid).delete();
-                            await window.db.incomes.where('asset_log_id').equals(lid).delete();
-                        }
+                        await window.db.transaction('rw', window.db.assets, window.db.asset_logs,
+                            window.db.transfers, window.db.expenses, window.db.incomes, async () => {
+                            const relatedLogs = await window.db.asset_logs.where('asset_id').equals(id).toArray();
+                            const allLogs = await window.db.asset_logs.toArray();
+                            const logIds = new Set(relatedLogs.map(l => l.id));
+                            if (allLogs.some(l => l.source_log_id && logIds.has(l.source_log_id))) {
+                                throw new Error('این صندوق برای خرید دارایی دیگری استفاده شده است؛ ابتدا دارایی وابسته را حذف کنید.');
+                            }
+                            for (const log of relatedLogs) {
+                                if (log.source_log_id) {
+                                    const sourceLog = await window.db.asset_logs.get(log.source_log_id);
+                                    if (sourceLog) {
+                                        const source = await window.db.assets.get(sourceLog.asset_id);
+                                        if (source) await window.db.assets.update(source.id, {
+                                            initial_cost: Number(source.initial_cost || 0) - Number(sourceLog.change_amount || 0)
+                                        });
+                                        await window.db.asset_logs.delete(sourceLog.id);
+                                    }
+                                }
+                                await window.db.transfers.where('asset_log_id').equals(log.id).delete();
+                                await window.db.expenses.where('asset_log_id').equals(log.id).delete();
+                                await window.db.incomes.where('asset_log_id').equals(log.id).delete();
+                            }
+                            await window.db.asset_logs.where('asset_id').equals(id).delete();
+                            await window.db.assets.delete(id);
+                        });
 
                         await this.refresh();
                         if (window.refreshApp) await window.refreshApp();
                     } catch (error) {
                         console.error("خطا در هنگام حذف دارایی: ", error);
-                        alert("خطایی هنگام حذف دارایی رخ داد.");
+                        alert(error.message || "خطایی هنگام حذف دارایی رخ داد.");
                     }
                 }
             };
