@@ -2,56 +2,35 @@
  * js/services/backupService.js
  */
 window.backupService = {
-    async exportToJson(income) {
-        const budgets = await window.db.budgets.toArray();
-        const expenses = await window.db.expenses.toArray();
-
-        const backupData = {
-            version: 1,
-            exported_at: new Date().toISOString(),
-            income: Number(income) || 0,
-            budgets,
-            expenses
-        };
-
-        const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
+    async exportToJson() {
+        const names = ['cycles', 'incomes', 'budgets', 'expenses', 'assets', 'asset_logs', 'transfers'];
+        const data = { version: 4, exported_at: new Date().toISOString() };
+        await window.db.transaction('r', ...names.map(n => window.db[n]), async () => {
+            for (const name of names) data[name] = await window.db[name].toArray();
+        });
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
         a.download = `pool_backup_${new Date().toISOString().slice(0, 10)}.json`;
         a.click();
-        URL.revokeObjectURL(url);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
     },
 
     async importFromJson(file) {
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-
-            reader.onload = async (e) => {
-                try {
-                    const data = JSON.parse(e.target.result);
-
-                    if (!data.budgets || !data.expenses) {
-                        throw new Error('ساختار فایل پشتیبان نامعتبر است.');
-                    }
-
-                    await window.db.transaction('rw', window.db.budgets, window.db.expenses, async () => {
-                        await window.db.budgets.clear();
-                        await window.db.expenses.clear();
-
-                        await window.db.budgets.bulkAdd(data.budgets);
-                        await window.db.expenses.bulkAdd(data.expenses);
-                    });
-
-                    resolve(data.income || 0);
-                } catch (err) {
-                    reject(err);
-                }
-            };
-
-            reader.onerror = () => reject(new Error('خطا در خواندن فایل'));
-            reader.readAsText(file);
+        const text = await file.text();
+        const data = JSON.parse(text);
+        const names = ['cycles', 'incomes', 'budgets', 'expenses', 'assets', 'asset_logs', 'transfers'];
+        if (data.version !== 4 || !names.every(n => Array.isArray(data[n]))) {
+            throw new Error('فایل پشتیبان کامل نسخه ۴ لازم است.');
+        }
+        await window.db.transaction('rw', ...names.map(n => window.db[n]), async () => {
+            for (const name of names) await window.db[name].clear();
+            for (const name of names) {
+                if (data[name].length) await window.db[name].bulkAdd(data[name]);
+            }
         });
+        return true;
     },
 
     async exportToExcel(income, budgetsWithStats, expenses) {
