@@ -148,6 +148,64 @@ function setupEventListeners() {
         });
     }
 
+    // ثبت سریع هزینه از داشبورد
+    const quickModal = document.getElementById('quickExpenseModal');
+    const quickForm = document.getElementById('quickExpenseForm');
+    const quickOpen = document.getElementById('btnQuickExpense');
+    const quickClose = () => quickModal.classList.add('hidden');
+    document.getElementById('btnCloseQuickExpense')?.addEventListener('click', quickClose);
+    quickModal?.addEventListener('click', e => { if (e.target === quickModal) quickClose(); });
+    quickOpen?.addEventListener('click', async () => {
+        if (!currentCycle) {
+            alert('ابتدا یک دوره کاری ایجاد کنید.');
+            return;
+        }
+        const budgets = await window.db.budgets.where('cycle_id').equals(currentCycle.id).toArray();
+        if (!budgets.length) {
+            alert('ابتدا یک پاکت بودجه ایجاد کنید.');
+            return;
+        }
+        const select = document.getElementById('quickExpenseBudget');
+        select.replaceChildren();
+        budgets.forEach(b => {
+            const option = document.createElement('option');
+            option.value = b.id;
+            option.textContent = b.title;
+            select.appendChild(option);
+        });
+        quickForm.reset();
+        quickModal.classList.remove('hidden');
+        document.getElementById('quickExpenseTitle').focus();
+    });
+    quickForm?.addEventListener('submit', async e => {
+        e.preventDefault();
+        if (!currentCycle) return;
+        const budgetId = Number(document.getElementById('quickExpenseBudget').value);
+        const title = document.getElementById('quickExpenseTitle').value.trim();
+        const amount = Number(document.getElementById('quickExpenseAmount').value);
+        if (!title || !Number.isSafeInteger(amount) || amount <= 0) return;
+        const budget = await window.db.budgets.get(budgetId);
+        if (!budget || budget.cycle_id !== currentCycle.id) {
+            alert('پاکت انتخاب‌شده معتبر نیست.');
+            return;
+        }
+        const submit = quickForm.querySelector('[type="submit"]');
+        submit.disabled = true;
+        try {
+            await window.db.expenses.add({
+                cycle_id: currentCycle.id, budget_id: budgetId, title, amount,
+                date: window.persianDatePicker ? window.persianDatePicker.getTodayJalaliString() : new Date().toLocaleDateString('fa-IR'),
+                created_at: new Date().toISOString()
+            });
+            quickClose();
+            await refreshApp();
+        } catch (error) {
+            alert('ثبت هزینه ناموفق بود: ' + error.message);
+        } finally {
+            submit.disabled = false;
+        }
+    });
+
     // فرم ثبت هزینه روزانه
     const addExpenseForm = document.getElementById('addExpenseForm');
     if (addExpenseForm) {
