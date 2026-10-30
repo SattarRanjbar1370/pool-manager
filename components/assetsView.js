@@ -288,7 +288,7 @@ window.assetsViewComponent = {
 
                 try {
                     await window.db.transaction('rw', window.db.assets, window.db.asset_logs,
-                        window.db.transfers, window.db.expenses, window.db.incomes, async () => {
+                        window.db.transfers, window.db.expenses, window.db.incomes, window.db.cycles, async () => {
                         const balance = await this.calculateAssetBalance(assetId, isCash);
                         if (!isAdd && (isCash ? amount > balance.cost : qty > balance.quantity)) {
                             throw new Error('موجودی دارایی برای برداشت کافی نیست.');
