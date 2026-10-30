@@ -61,6 +61,7 @@ async function refreshApp() {
     // انتقال پس‌انداز از نقدینگی کسر می‌شود ولی هزینه نیست
     const netTransfers = transfers.reduce((sum, t) => sum + (t.direction === 'out' ? Number(t.amount || 0) : -Number(t.amount || 0)), 0);
     window.statCardsComponent.update({ income: totalLiquidity, totalAllocated, totalSpent, netTransfers });
+    if (window.homeInsightsComponent) await window.homeInsightsComponent.update(budgetsWithStats, expenses);
 
     // بروزرسانی کامپوننت‌ها
     window.budgetViewComponent.renderTable(budgetsWithStats, handleEditBudget, handleDeleteBudget);
@@ -329,6 +330,7 @@ function setupEventListeners() {
 // ۵. بارگذاری اولیه یکتا
 document.addEventListener('DOMContentLoaded', async () => {
     window.statCardsComponent.mount();
+    window.homeInsightsComponent.mount();
     window.budgetViewComponent.mount();
     window.expenseViewComponent.mount();
     window.timelineViewComponent.mount();
