@@ -286,7 +286,9 @@ window.assetsViewComponent = {
                     const totalLiquidity = await window.incomeService.getTotalLiquidity(cycle.id);
                     const expenses = await window.db.expenses.where('cycle_id').equals(cycle.id).toArray();
                     const totalSpent = expenses.reduce((sum, item) => sum + (item.amount || 0), 0);
-                    const freeBalance = totalLiquidity - totalSpent;
+                    const transfers = await window.db.transfers.where('cycle_id').equals(cycle.id).toArray();
+                    const netTransfers = transfers.reduce((sum, t) => sum + (t.direction === 'out' ? Number(t.amount || 0) : -Number(t.amount || 0)), 0);
+                    const freeBalance = totalLiquidity - totalSpent - netTransfers;
 
                     if (amount > freeBalance) {
                         alert(`خطا: موجودی نقدینگی آزاد شما (${window.ui.formatNumber(freeBalance)} تومان) برای این انتقال کافی نیست.`);
