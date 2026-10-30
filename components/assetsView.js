@@ -352,30 +352,16 @@ window.assetsViewComponent = {
                     initial_cost: Math.max(0, (targetAsset.initial_cost || 0) + changeCost)
                 });
 
-                // ارتباط با نقدینگی ماه
-                if (isAdd) {
-                    // اگر خرید از نقدینگی ماه بوده، در هزینه‌ها ثبت شود
-                    if (isCash || fundingSource === 'liquidity') {
-                        await window.db.expenses.add({
-                            cycle_id: cycle.id,
-                            budget_id: 0,
-                            title: `انتقال به اندوخته: ${targetAsset.title} (${note})`,
-                            amount: amount,
-                            date: date,
-                            created_at: new Date().toISOString(),
-                            asset_log_id: logId
-                        });
-                    }
-                } else {
-                    // برگشت پول از فروش/برداشت به نقدینگی ماه
-                    await window.db.incomes.add({
+                // انتقال داخلی: بدون ثبت درآمد یا هزینه ساختگی
+                if (isCash || fundingSource === 'liquidity' || !isAdd) {
+                    await window.db.transfers.add({
                         cycle_id: cycle.id,
-                        title: `برداشت از اندوخته: ${targetAsset.title} (${note})`,
+                        asset_id: assetId,
+                        asset_log_id: logId,
                         amount: amount,
-                        is_salary: 0,
+                        direction: isAdd ? 'out' : 'in',
                         date: date,
-                        created_at: new Date().toISOString(),
-                        asset_log_id: logId
+                        created_at: new Date().toISOString()
                     });
                 }
 
