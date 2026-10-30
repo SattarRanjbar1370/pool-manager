@@ -41,6 +41,13 @@ jobs:
           mkdir -p www
           cp -r index.html css js assets components www/
 
+      - name: Verify packaged resources
+        run: |
+          test -f www/components/assetsView.js
+          test -f www/js/db.js
+          node --test tests/financial.test.cjs
+          for f in js/app.js js/db.js js/services/*.js components/*.js; do node --check "$f"; done
+
       # ۳. اضافه کردن پلتفرم اندروید و همگام‌سازی
       - name: Setup Android Platform
         run: |
