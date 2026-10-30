@@ -63,7 +63,10 @@ window.backupService = {
     },
 
     async exportToPdf(income, budgetsWithStats, totalSpent) {
-        const freeBalance = income - totalSpent;
+        const cycle = await window.cycleService.getCurrentCycle();
+        const transfers = cycle ? await window.db.transfers.where('cycle_id').equals(cycle.id).toArray() : [];
+        const netTransfers = transfers.reduce((sum, t) => sum + (t.direction === 'out' ? 1 : -1) * Number(t.amount || 0), 0);
+        const freeBalance = income - totalSpent - netTransfers;
         const dateStr = new Date().toLocaleDateString('fa-IR');
 
         const printContainer = document.createElement('div');
